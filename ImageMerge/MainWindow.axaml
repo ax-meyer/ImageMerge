@@ -4,7 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:imageMerge="clr-namespace:ImageMerge"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-        x:Class="ImageMerge.Views.MainWindow"
+        x:Class="ImageMerge.MainWindow"
         x:DataType="imageMerge:ViewModel"
         Title="ImageMerge">
 

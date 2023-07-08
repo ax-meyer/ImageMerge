@@ -1,6 +1,6 @@
 using Avalonia.Controls;
 
-namespace ImageMerge.Views;
+namespace ImageMerge;
 
 public partial class MainWindow : Window
 {

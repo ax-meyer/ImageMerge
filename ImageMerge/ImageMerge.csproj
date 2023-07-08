@@ -8,42 +8,28 @@
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
     </PropertyGroup>
-
+    
     <ItemGroup>
-        <AvaloniaResource Include="Assets\**" />
-    </ItemGroup>
-
-
-    <ItemGroup>
-        <PackageReference Include="Avalonia" Version="11.0.0" />
-        <PackageReference Include="Avalonia.Desktop" Version="11.0.0" />
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0" />
-        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.0.0" />
+        <PackageReference Include="Avalonia" Version="11.0.0"/>
+        <PackageReference Include="Avalonia.Desktop" Version="11.0.0"/>
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0"/>
+        <PackageReference Include="Avalonia.Fonts.Inter" Version="11.0.0"/>
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.0" />
-        <PackageReference Include="Avalonia.ReactiveUI" Version="11.0.0" />
-        <PackageReference Include="MessageBox.Avalonia" Version="2.2.0" />
-        <PackageReference Include="OpenCvSharp4" Version="4.7.0.20230115" />
-        <PackageReference Include="OpenCvSharp4.Extensions" Version="4.7.0.20230115" />
-        <PackageReference Include="OpenCvSharp4.runtime.osx.10.15-universal" Version="4.7.0.20230224" Condition="$([MSBuild]::IsOsPlatform('OSX'))" />
-        <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.5.3.20210817" Condition="$([MSBuild]::IsOsPlatform('Windows'))" />
-        <PackageReference Include="OpenCvSharp4.Windows" Version="4.7.0.20230115" Condition="$([MSBuild]::IsOsPlatform('Windows'))" />
-        <PackageReference Include="OpenCvSharp4.WpfExtensions" Version="4.7.0.20230115" Condition="$([MSBuild]::IsOsPlatform('Windows'))" />
-        <PackageReference Include="Prism.Avalonia" Version="8.1.97.11000" />
-        <PackageReference Include="Prism.Core" Version="8.1.97" />
-        <PackageReference Include="ProgressDialog.Avalonia" Version="2.0.1-beta" />
+        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.0"/>
+        <PackageReference Include="Avalonia.ReactiveUI" Version="11.0.0"/>
+        <PackageReference Include="MessageBox.Avalonia" Version="2.2.0"/>
+        <PackageReference Include="NetVips" Version="2.3.1"/>
+        <PackageReference Include="NetVips.Native.osx-arm64" Version="8.14.2" Condition="$([MSBuild]::IsOsPlatform('OSX'))"/>
+        <PackageReference Include="NetVips.Native.win-x64" Version="8.14.2" Condition="$([MSBuild]::IsOsPlatform('Windows'))"/>
+        <PackageReference Include="Prism.Avalonia" Version="8.1.97.11000"/>
+        <PackageReference Include="Prism.Core" Version="8.1.97"/>
+        <PackageReference Include="ProgressDialog.Avalonia" Version="2.0.1-beta"/>
     </ItemGroup>
 
-
     <ItemGroup>
-      <UpToDateCheckInput Remove="Assets\avalonia-logo.ico" />
-    </ItemGroup>
-
-
-    <ItemGroup>
-      <Compile Update="MainWindow.axaml.cs">
-        <DependentUpon>MainWindow.axaml</DependentUpon>
-        <SubType>Code</SubType>
-      </Compile>
+        <Compile Update="MainWindow.axaml.cs">
+            <DependentUpon>MainWindow.axaml</DependentUpon>
+            <SubType>Code</SubType>
+        </Compile>
     </ItemGroup>
 </Project>

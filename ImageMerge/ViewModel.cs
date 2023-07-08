@@ -2,27 +2,23 @@
 using System.Collections.Generic;
 using Prism.Commands;
 using Prism.Mvvm;
-using OpenCvSharp;
+using NetVips;
 using System.IO;
+using System.Linq;
 using ProgressDialog;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using MessageBox.Avalonia.Enums;
-using Prism.Services.Dialogs;
 using ProgressDialog.Avalonia;
+using Image = NetVips.Image;
 using Window = Avalonia.Controls.Window;
 
 namespace ImageMerge
 {
     internal class ViewModel : BindableBase
     {
-        private string[] _fileList = {
-            "/Users/alexander/Documents/MCloud/Daten/Bilder/iPhone/Fotos/2023/06/IMG_0835.JPG",
-            "/Users/alexander/Documents/MCloud/Daten/Bilder/iPhone/Fotos/2023/06/IMG_0836.JPG",
-            "/Users/alexander/Documents/MCloud/Daten/Bilder/iPhone/Fotos/2023/06/IMG_0837.JPG",
-            "/Users/alexander/Documents/MCloud/Daten/Bilder/iPhone/Fotos/2023/06/IMG_0838.JPG"
-        };
-         //   { "Select file(s) through button above or paste a list of files here.", "One file per line." };
+        private string[] _fileList =
+            { "Select file(s) through button above or paste a list of files here.", "One file per line." };
 
         private string _savePath = "/Users/alexander/Downloads/test";
         private bool _dividerLine;
@@ -171,7 +167,7 @@ namespace ImageMerge
 
                 progressStatus.Ct.ThrowIfCancellationRequested();
 
-                //for (int j = 0; j < (fileList.Length + 1) / 2; j++)
+                //for (int j = 0; j < (_fileList.Length + 1) / 2; j++)
                 Parallel.For(0, (_fileList.Length + 1) / 2, j =>
                     {
                         progressStatus.Ct.ThrowIfCancellationRequested();
@@ -179,36 +175,33 @@ namespace ImageMerge
                         int i = j * 2;
 
                         // load first image and get bool on direction
-                        Mat firstImg = new(_fileList[i]);
+                        var fistImgFile = _fileList[i];
+                        Image firstImg = NetVips.Image.NewFromFile(fistImgFile);
                         bool firstImgDirection = firstImg.Height > firstImg.Width;
 
                         // load second image. If odd number of images is provided and this is the end of the list, just clone the first image.
-                        Mat secondImg;
+                        Image secondImg;
                         bool secondImgDirection;
                         bool singleImg;
                         if (i + 1 < _fileList.Length)
                         {
-                            secondImg = new(_fileList[i + 1]);
+                            secondImg = NetVips.Image.NewFromFile(_fileList[i + 1]);
                             secondImgDirection = secondImg.Height > secondImg.Width;
                             singleImg = false;
                         }
                         else
                         {
                             secondImgDirection = firstImgDirection;
-                            secondImg = firstImg.Clone();
+                            secondImg = NetVips.Image.NewFromFile(fistImgFile);
                             singleImg = true;
                         }
 
                         // if height > width for any image, rotate 90 degrees --> width is always the larger dimension for all later processing steps.
                         if (firstImgDirection)
-                        {
-                            Cv2.Rotate(firstImg, firstImg, RotateFlags.Rotate90Clockwise);
-                        }
+                            firstImg = firstImg.Rot90();
 
                         if (secondImgDirection)
-                        {
-                            Cv2.Rotate(secondImg, secondImg, RotateFlags.Rotate90Clockwise);
-                        }
+                            secondImg = secondImg.Rot90();
 
 
                         // scale both images to have the same width
@@ -216,14 +209,10 @@ namespace ImageMerge
                         {
                             // make sure first images has the bigger width
                             if (firstImg.Width < secondImg.Width)
-                            {
-                                // without clone, its just pointers being moved around --> no dispose needed
                                 (firstImg, secondImg) = (secondImg, firstImg);
-                            }
 
                             double factor = firstImg.Width / (double)secondImg.Width;
-                            int newHeight = (int)Math.Round(secondImg.Height * factor);
-                            Cv2.Resize(secondImg, secondImg, new Size(firstImg.Width, newHeight));
+                            secondImg = secondImg.Resize(factor);
                         }
 
 
@@ -236,29 +225,31 @@ namespace ImageMerge
                             fullHeight += dividerLineHeight;
                         }
 
+                        var fullSize = firstImg.Width * fullHeight * firstImg.Bands;
+                        var fullSizeHalf = fullSize / 2;
                         // create empty new image
-                        Mat fullImg = new(new Size(firstImg.Width, fullHeight), firstImg.Type());
+                        var fullImg =
+                            Image.NewFromMemory(
+                                Enumerable.Repeat((byte)255, fullSize).ToArray(), firstImg.Width, fullHeight,
+                                firstImg.Bands, firstImg.Format);
 
                         // create areas where the images will be copied into the combined image
-                        Rect firstRect = new(0, 0, firstImg.Width, firstImg.Height);
-                        Rect secondRect = new(0, firstImg.Height + dividerLineHeight, secondImg.Width,
+                        System.Drawing.Rectangle firstRect = new(0, 0, firstImg.Width, firstImg.Height);
+                        System.Drawing.Rectangle secondRect = new(0, firstImg.Height + dividerLineHeight,
+                            secondImg.Width,
                             secondImg.Height);
-                        Mat firstSubMat = fullImg.SubMat(firstRect);
-                        Mat secondSubMat = fullImg.SubMat(secondRect);
 
-                        // copy images into combined image
-                        firstImg.CopyTo(firstSubMat);
-                        secondImg.CopyTo(secondSubMat);
+                        //var test = firstImg.WriteToMemory();
+
+                        fullImg = fullImg.Insert(firstImg, firstRect.Left, firstRect.Top);
+                        fullImg = fullImg.Insert(secondImg, secondRect.Left, secondRect.Top);
 
                         // save combined image
-                        string savename = _savePath + "\\" + (i / 2).ToString() + ".jpg";
-                        Cv2.ImWrite(savename, fullImg);
+                        fullImg.WriteToFile($"{_savePath}/{i / 2}.jpg");
 
                         // dispose of everything
                         firstImg.Dispose();
                         secondImg.Dispose();
-                        firstSubMat.Dispose();
-                        secondSubMat.Dispose();
                         fullImg.Dispose();
 
                         progressStatus.Ct.ThrowIfCancellationRequested();
@@ -272,7 +263,8 @@ namespace ImageMerge
             }
             catch (Exception ex)
             {
-                var box = MessageBox.Avalonia.MessageBoxManager.GetMessageBoxStandardWindow("Critical error!", "An Error occured: " + ex.Message, ButtonEnum.Ok, Icon.Error);
+                var box = MessageBox.Avalonia.MessageBoxManager.GetMessageBoxStandardWindow("Critical error!",
+                    "An Error occured: " + ex.Message, ButtonEnum.Ok, Icon.Error);
             }
         }
     }
