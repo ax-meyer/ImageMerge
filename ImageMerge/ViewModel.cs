@@ -1,123 +1,112 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Windows.Forms;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
+using Avalonia.Controls;
+using MessageBox.Avalonia;
+using MessageBox.Avalonia.Enums;
 using Prism.Commands;
 using Prism.Mvvm;
-using OpenCvSharp;
-using System.IO;
 using ProgressDialog;
-using System.Threading.Tasks;
+using ProgressDialog.Avalonia;
+using Icon = MessageBox.Avalonia.Enums.Icon;
+using Image = NetVips.Image;
 
 namespace ImageMerge
 {
     internal class ViewModel : BindableBase
     {
-        private string[] fileList = new string[] { "Select file(s) through button above or paste a list of files here.", "One file per line." };
-        private string savePath = "";
-        private bool dividerLine;
+        private string[] _fileList =
+            { "Select file(s) through button above or paste a list of files here.", "One file per line." };
 
-        private System.Windows.Window mainWindowHandle;
+        private string _savePath = "";
+        private bool _dividerLine;
+
+        private Window _mainWindowHandle;
 
         public string FileList
         {
             get
             {
                 string stringList = "";
-                foreach (string file in fileList)
+                foreach (string file in _fileList)
                 {
                     stringList += file + "\n";
                 }
+
                 return stringList;
             }
             set
             {
-                fileList = value.Split("\n");
-                RaisePropertyChanged(nameof(FileList));
+                _fileList = value.Split("\n");
+                RaisePropertyChanged();
             }
         }
 
         public string SavePath
         {
-            get => savePath;
+            get => _savePath;
             set
             {
-                savePath = value;
-                RaisePropertyChanged(nameof(SavePath));
+                _savePath = value;
+                RaisePropertyChanged();
             }
         }
+
         public bool DividerLine
         {
-            get => dividerLine;
+            get => _dividerLine;
             set
             {
-                dividerLine = value;
-                RaisePropertyChanged(nameof(DividerLine));
+                _dividerLine = value;
+                RaisePropertyChanged();
             }
         }
 
-        public DelegateCommand SelectSourceCommand => new DelegateCommand(SelectSource);
-        public DelegateCommand SelectTargetCommand => new DelegateCommand(SelectTarget);
-        public DelegateCommand ConvertCommand => new DelegateCommand(ConvertFilesProgressWrapper);
+        public DelegateCommand SelectSourceCommand => new(SelectSource);
+        public DelegateCommand SelectTargetCommand => new(SelectTarget);
+        public DelegateCommand ConvertCommand => new(ConvertFilesProgressWrapper);
 
-        public ViewModel(System.Windows.Window mainWindow)
+        public ViewModel(Window mainWindow)
         {
-            mainWindowHandle = mainWindow;
+            _mainWindowHandle = mainWindow;
         }
 
-        private void SelectSource()
+        private async void SelectSource()
         {
-            List<string> formats = new List<string> { ".jpg", ".png", ".bmp", ".tiff" };
-            string fileFilter = "All supported|";
-            foreach (string format in formats)
-            {
-                if (format.ToLower().Contains("ovf"))
-                {
-                    continue;
-                }
-                fileFilter += "*" + format + ";";
-            }
-            foreach (string format in formats)
-            {
-                if (format.ToLower().Contains("ovf"))
-                {
-                    continue;
-                }
-                if (fileFilter != String.Empty)
-                {
-                    fileFilter += "|";
-                }
-                fileFilter += "*" + format + "|*" + format;
-            }
-            fileFilter += "|All Files|*.*";
+            List<string> formats = new() { "jpg", "png", "bmp", "tiff" };
 
-            Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog
+            OpenFileDialog dlg = new OpenFileDialog
             {
-                Multiselect = true,
+                AllowMultiple = true,
                 Title = "Select file(s)",
-                Filter = fileFilter,
-                FilterIndex = 0
+                Filters = new List<FileDialogFilter>
+                {
+                    new() { Name = "Supported images", Extensions = formats },
+                    new() { Name = "All files", Extensions = new List<string> { "*" } }
+                }
             };
 
             // Display OpenFileDialog by calling ShowDialog method.
-            bool? dlgResult = dlg.ShowDialog();
+            var dlgResult = await dlg.ShowAsync(_mainWindowHandle);
 
-            if (dlgResult.Value)
+            if (dlgResult is not null && dlgResult.Length > 0)
             {
-                fileList = dlg.FileNames;
+                _fileList = dlgResult;
                 RaisePropertyChanged(nameof(FileList));
             }
         }
 
-        private void SelectTarget()
+        private async void SelectTarget()
         {
-            FolderBrowserDialog dlg = new();
+            OpenFolderDialog dlg = new();
 
-            DialogResult dlgResult = dlg.ShowDialog();
+            var dlgResult = await dlg.ShowAsync(_mainWindowHandle);
 
-            if (dlg.SelectedPath != "")
-            {
-                SavePath = dlg.SelectedPath;
-            }
+            if (dlgResult is not null && dlgResult.Trim() != string.Empty)
+                SavePath = dlgResult;
         }
 
         private async void ConvertFilesProgressWrapper()
@@ -129,8 +118,9 @@ namespace ImageMerge
             Task ts = Task.Run(() => ConvertFiles(progressStatus));
 
             /// Instantiate & open the progress bar window asynchronously.
-            ProgressDialogWindow progressWindow = new ProgressDialogWindow("Example Progress Window", progressStatus, mainWindowHandle);
-            Task<bool?> progressWindowTask = progressWindow.ShowDialogAsync();
+            ProgressDialogWindow progressWindow =
+                new ProgressDialogWindow("Example Progress Window", progressStatus, _mainWindowHandle);
+            var progressWindowTask = progressWindow.ShowDialog(_mainWindowHandle);
 
             /// Wait for the async task to finish, handle cancelation exception.
             try
@@ -151,12 +141,12 @@ namespace ImageMerge
         {
             try
             {
-                if (savePath == null || savePath.Trim() == "")
+                if (_savePath == null || _savePath.Trim() == "")
                 {
                     throw new ArgumentException("Please select savepath before merging!");
                 }
 
-                foreach (string filename in fileList)
+                foreach (string filename in _fileList)
                 {
                     if (!File.Exists(filename))
                     {
@@ -164,124 +154,118 @@ namespace ImageMerge
                     }
                 }
 
-                int processed_images = 0;
+                int processedImages = 0;
 
                 // Update progress outside of parallel processing loop to avoid progress bar jumping back and forth
                 // increase of the processed_images counter is done with atomic operations int the loop
                 void UpdateProgress()
                 {
-                    int progress = (int)(processed_images / (double)fileList.Length * 100);
-                    progressStatus.Update("Merging image " + (processed_images + 1).ToString() + " and " + (processed_images + 2).ToString() + " of " + fileList.Length.ToString(), progress);
-
+                    int progress = (int)(processedImages / (double)_fileList.Length * 100);
+                    progressStatus.Update(
+                        "Merging image " + (processedImages + 1) + " and " +
+                        (processedImages + 2) + " of " + _fileList.Length, progress);
                 }
 
-                progressStatus.CT.ThrowIfCancellationRequested();
+                progressStatus.Ct.ThrowIfCancellationRequested();
 
-                //for (int j = 0; j < (fileList.Length + 1) / 2; j++)
-                Parallel.For(0, (fileList.Length + 1) / 2, j =>
-                {
-                    progressStatus.CT.ThrowIfCancellationRequested();
-                    // hack to emulate i += 2 iterator in loop
-                    int i = j * 2;
-
-                    // load first image and get bool on direction
-                    Mat firstImg = new(fileList[i]);
-                    bool firstImgDirection = firstImg.Height > firstImg.Width;
-
-                    // load second image. If odd number of images is provided and this is the end of the list, just clone the first image.
-                    Mat secondImg;
-                    bool secondImgDirection;
-                    bool singleImg;
-                    if (i + 1 < fileList.Length)
+                //for (int j = 0; j < (_fileList.Length + 1) / 2; j++)
+                Parallel.For(0, (_fileList.Length + 1) / 2, j =>
                     {
-                        secondImg = new(fileList[i + 1]);
-                        secondImgDirection = secondImg.Height > secondImg.Width;
-                        singleImg = false;
-                    }
-                    else
-                    {
-                        secondImgDirection = firstImgDirection;
-                        secondImg = firstImg.Clone();
-                        singleImg = true;
-                    }
+                        progressStatus.Ct.ThrowIfCancellationRequested();
+                        // hack to emulate i += 2 iterator in loop
+                        int i = j * 2;
 
-                    // if height > width for any image, rotate 90 degrees --> width is always the larger dimension for all later processing steps.
-                    if (firstImgDirection)
-                    {
-                        Cv2.Rotate(firstImg, firstImg, RotateFlags.Rotate90Clockwise);
-                    }
+                        // load first image and get bool on direction
+                        var fistImgFile = _fileList[i];
+                        Image firstImg = Image.NewFromFile(fistImgFile);
+                        bool firstImgDirection = firstImg.Height > firstImg.Width;
 
-                    if (secondImgDirection)
-                    {
-                        Cv2.Rotate(secondImg, secondImg, RotateFlags.Rotate90Clockwise);
-                    }
-
-                    
-
-                    // scale both images to have the same width
-                    if (firstImg.Width != secondImg.Width)
-                    {
-                        // make sure first images has the bigger width
-                        if (firstImg.Width < secondImg.Width)
+                        // load second image. If odd number of images is provided and this is the end of the list, just clone the first image.
+                        Image secondImg;
+                        bool secondImgDirection;
+                        bool singleImg;
+                        if (i + 1 < _fileList.Length)
                         {
-                            // without clone, its just pointers being moved around --> no dispose needed
-                            Mat tmp = firstImg;
-                            firstImg = secondImg;
-                            secondImg = tmp;
+                            secondImg = Image.NewFromFile(_fileList[i + 1]);
+                            secondImgDirection = secondImg.Height > secondImg.Width;
+                            singleImg = false;
+                        }
+                        else
+                        {
+                            secondImgDirection = firstImgDirection;
+                            secondImg = Image.NewFromFile(fistImgFile);
+                            singleImg = true;
                         }
 
-                        double factor = firstImg.Width / (double)secondImg.Width;
-                        int new_height = (int)Math.Round(secondImg.Height * factor);
-                        Cv2.Resize(secondImg, secondImg, new Size(firstImg.Width, new_height));
+                        // if height > width for any image, rotate 90 degrees --> width is always the larger dimension for all later processing steps.
+                        if (firstImgDirection)
+                            firstImg = firstImg.Rot90();
+
+                        if (secondImgDirection)
+                            secondImg = secondImg.Rot90();
+
+
+                        // scale both images to have the same width
+                        if (firstImg.Width != secondImg.Width)
+                        {
+                            // make sure first images has the bigger width
+                            if (firstImg.Width < secondImg.Width)
+                                (firstImg, secondImg) = (secondImg, firstImg);
+
+                            double factor = firstImg.Width / (double)secondImg.Width;
+                            secondImg = secondImg.Resize(factor);
+                        }
+
+
+                        // calculate height for combined image, with divider line if requested
+                        int fullHeight = firstImg.Height + secondImg.Height;
+                        int dividerLineHeight = 0;
+                        if (DividerLine)
+                        {
+                            dividerLineHeight = (int)(fullHeight * 0.01);
+                            fullHeight += dividerLineHeight;
+                        }
+
+                        var fullSize = firstImg.Width * fullHeight * firstImg.Bands;
+                        var fullSizeHalf = fullSize / 2;
+                        // create empty new image
+                        var fullImg =
+                            Image.NewFromMemory(
+                                Enumerable.Repeat((byte)255, fullSize).ToArray(), firstImg.Width, fullHeight,
+                                firstImg.Bands, firstImg.Format);
+
+                        // create areas where the images will be copied into the combined image
+                        Rectangle firstRect = new(0, 0, firstImg.Width, firstImg.Height);
+                        Rectangle secondRect = new(0, firstImg.Height + dividerLineHeight,
+                            secondImg.Width,
+                            secondImg.Height);
+
+                        //var test = firstImg.WriteToMemory();
+
+                        fullImg = fullImg.Insert(firstImg, firstRect.Left, firstRect.Top);
+                        fullImg = fullImg.Insert(secondImg, secondRect.Left, secondRect.Top);
+
+                        // save combined image
+                        fullImg.WriteToFile($"{_savePath}/{i / 2}.jpg");
+
+                        // dispose of everything
+                        firstImg.Dispose();
+                        secondImg.Dispose();
+                        fullImg.Dispose();
+
+                        progressStatus.Ct.ThrowIfCancellationRequested();
+
+                        // update progressbar
+                        processedImages += singleImg ? 1 : 2;
+                        UpdateProgress();
                     }
-
-
-                    // calculate height for combined image, with divider line if requested
-                    int fullHeight = firstImg.Height + secondImg.Height;
-                    int dividerLineHeight = 0;
-                    if (DividerLine)
-                    {
-                        dividerLineHeight = (int)(fullHeight * 0.01);
-                        fullHeight += dividerLineHeight;
-                    }
-
-                    // create empty new image
-                    Mat fullImg = new(new Size(firstImg.Width, fullHeight), firstImg.Type());
-
-                    // create areas where the images will be copied into the combined image
-                    Rect firstRect = new(0, 0, firstImg.Width, firstImg.Height);
-                    Rect secondRect = new(0, firstImg.Height + dividerLineHeight, secondImg.Width, secondImg.Height);
-                    Mat firstSubMat = fullImg.SubMat(firstRect);
-                    Mat secondSubMat = fullImg.SubMat(secondRect);
-
-                    // copy images into combined image
-                    firstImg.CopyTo(firstSubMat);
-                    secondImg.CopyTo(secondSubMat);
-                    
-                    // save combined image
-                    string savename = savePath + "\\" + (i / 2).ToString() + ".jpg";
-                    Cv2.ImWrite(savename, fullImg);
-
-                    // dispose of everything
-                    firstImg.Dispose();
-                    secondImg.Dispose();
-                    firstSubMat.Dispose();
-                    secondSubMat.Dispose();
-                    fullImg.Dispose();
-
-                    progressStatus.CT.ThrowIfCancellationRequested();
-
-                    // update progressbar
-                    processed_images += singleImg ? 1 : 2;
-                    UpdateProgress();
-                }
                 );
                 progressStatus.IsFinished = true;
-
             }
             catch (Exception ex)
             {
-                MessageBox.Show("An Error occured: " + ex.Message, "Critical error!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                var box = MessageBoxManager.GetMessageBoxStandardWindow("Critical error!",
+                    "An Error occured: " + ex.Message, ButtonEnum.Ok, Icon.Error);
             }
         }
     }
