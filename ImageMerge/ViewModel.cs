@@ -1,17 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
-using Prism.Commands;
-using Prism.Mvvm;
-using NetVips;
+using System.Drawing;
 using System.IO;
 using System.Linq;
-using ProgressDialog;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using MessageBox.Avalonia;
 using MessageBox.Avalonia.Enums;
+using Prism.Commands;
+using Prism.Mvvm;
+using ProgressDialog;
 using ProgressDialog.Avalonia;
+using Icon = MessageBox.Avalonia.Enums.Icon;
 using Image = NetVips.Image;
-using Window = Avalonia.Controls.Window;
 
 namespace ImageMerge
 {
@@ -20,7 +21,7 @@ namespace ImageMerge
         private string[] _fileList =
             { "Select file(s) through button above or paste a list of files here.", "One file per line." };
 
-        private string _savePath = "/Users/alexander/Downloads/test";
+        private string _savePath = "";
         private bool _dividerLine;
 
         private Window _mainWindowHandle;
@@ -50,7 +51,7 @@ namespace ImageMerge
             set
             {
                 _savePath = value;
-                RaisePropertyChanged(nameof(SavePath));
+                RaisePropertyChanged();
             }
         }
 
@@ -60,13 +61,13 @@ namespace ImageMerge
             set
             {
                 _dividerLine = value;
-                RaisePropertyChanged(nameof(DividerLine));
+                RaisePropertyChanged();
             }
         }
 
-        public DelegateCommand SelectSourceCommand => new DelegateCommand(SelectSource);
-        public DelegateCommand SelectTargetCommand => new DelegateCommand(SelectTarget);
-        public DelegateCommand ConvertCommand => new DelegateCommand(ConvertFilesProgressWrapper);
+        public DelegateCommand SelectSourceCommand => new(SelectSource);
+        public DelegateCommand SelectTargetCommand => new(SelectTarget);
+        public DelegateCommand ConvertCommand => new(ConvertFilesProgressWrapper);
 
         public ViewModel(Window mainWindow)
         {
@@ -75,16 +76,16 @@ namespace ImageMerge
 
         private async void SelectSource()
         {
-            List<string> formats = new List<string> { "jpg", "png", "bmp", "tiff" };
+            List<string> formats = new() { "jpg", "png", "bmp", "tiff" };
 
             OpenFileDialog dlg = new OpenFileDialog
             {
                 AllowMultiple = true,
                 Title = "Select file(s)",
-                Filters = new List<FileDialogFilter>()
+                Filters = new List<FileDialogFilter>
                 {
                     new() { Name = "Supported images", Extensions = formats },
-                    new() { Name = "All files", Extensions = new List<string>() { "*" } }
+                    new() { Name = "All files", Extensions = new List<string> { "*" } }
                 }
             };
 
@@ -161,8 +162,8 @@ namespace ImageMerge
                 {
                     int progress = (int)(processedImages / (double)_fileList.Length * 100);
                     progressStatus.Update(
-                        "Merging image " + (processedImages + 1).ToString() + " and " +
-                        (processedImages + 2).ToString() + " of " + _fileList.Length.ToString(), progress);
+                        "Merging image " + (processedImages + 1) + " and " +
+                        (processedImages + 2) + " of " + _fileList.Length, progress);
                 }
 
                 progressStatus.Ct.ThrowIfCancellationRequested();
@@ -176,7 +177,7 @@ namespace ImageMerge
 
                         // load first image and get bool on direction
                         var fistImgFile = _fileList[i];
-                        Image firstImg = NetVips.Image.NewFromFile(fistImgFile);
+                        Image firstImg = Image.NewFromFile(fistImgFile);
                         bool firstImgDirection = firstImg.Height > firstImg.Width;
 
                         // load second image. If odd number of images is provided and this is the end of the list, just clone the first image.
@@ -185,14 +186,14 @@ namespace ImageMerge
                         bool singleImg;
                         if (i + 1 < _fileList.Length)
                         {
-                            secondImg = NetVips.Image.NewFromFile(_fileList[i + 1]);
+                            secondImg = Image.NewFromFile(_fileList[i + 1]);
                             secondImgDirection = secondImg.Height > secondImg.Width;
                             singleImg = false;
                         }
                         else
                         {
                             secondImgDirection = firstImgDirection;
-                            secondImg = NetVips.Image.NewFromFile(fistImgFile);
+                            secondImg = Image.NewFromFile(fistImgFile);
                             singleImg = true;
                         }
 
@@ -234,8 +235,8 @@ namespace ImageMerge
                                 firstImg.Bands, firstImg.Format);
 
                         // create areas where the images will be copied into the combined image
-                        System.Drawing.Rectangle firstRect = new(0, 0, firstImg.Width, firstImg.Height);
-                        System.Drawing.Rectangle secondRect = new(0, firstImg.Height + dividerLineHeight,
+                        Rectangle firstRect = new(0, 0, firstImg.Width, firstImg.Height);
+                        Rectangle secondRect = new(0, firstImg.Height + dividerLineHeight,
                             secondImg.Width,
                             secondImg.Height);
 
@@ -263,7 +264,7 @@ namespace ImageMerge
             }
             catch (Exception ex)
             {
-                var box = MessageBox.Avalonia.MessageBoxManager.GetMessageBoxStandardWindow("Critical error!",
+                var box = MessageBoxManager.GetMessageBoxStandardWindow("Critical error!",
                     "An Error occured: " + ex.Message, ButtonEnum.Ok, Icon.Error);
             }
         }
