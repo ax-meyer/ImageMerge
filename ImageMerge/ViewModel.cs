@@ -5,13 +5,12 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
-using MessageBox.Avalonia;
-using MessageBox.Avalonia.Enums;
+using MsBox.Avalonia;
+using MsBox.Avalonia.Enums;
 using Prism.Commands;
 using Prism.Mvvm;
 using ProgressDialog;
 using ProgressDialog.Avalonia;
-using Icon = MessageBox.Avalonia.Enums.Icon;
 using Image = NetVips.Image;
 
 namespace ImageMerge
@@ -264,8 +263,9 @@ namespace ImageMerge
             }
             catch (Exception ex)
             {
-                var box = MessageBoxManager.GetMessageBoxStandardWindow("Critical error!",
-                    "An Error occured: " + ex.Message, ButtonEnum.Ok, Icon.Error);
+                var box = MessageBoxManager.GetMessageBoxStandard("Critical error!",
+                    "An Error occured: " + ex.Message, ButtonEnum.Ok, MsBox.Avalonia.Enums.Icon.Error);
+                Task.Run(() =>box.ShowAsync());
             }
         }
     }
