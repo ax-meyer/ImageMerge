@@ -20,7 +20,7 @@
         <PackageReference Include="MessageBox.Avalonia" Version="3.1.4"/>
         <PackageReference Include="NetVips" Version="2.3.1"/>
         <PackageReference Include="NetVips.Native.osx-arm64" Version="8.14.4" Condition="$([MSBuild]::IsOsPlatform('OSX'))"/>
-        <PackageReference Include="NetVips.Native.win-x64" Version="8.14.4" Condition="$([MSBuild]::IsOsPlatform('Windows'))"/>
+        <PackageReference Include="NetVips.Native.win-x64" Version="8.14.5" Condition="$([MSBuild]::IsOsPlatform('Windows'))"/>
         <PackageReference Include="Prism.Avalonia" Version="8.1.97.11000"/>
         <PackageReference Include="Prism.Core" Version="8.1.97"/>
         <PackageReference Include="ProgressDialog.Avalonia" Version="2.0.1"/>
