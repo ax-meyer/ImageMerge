@@ -23,7 +23,7 @@
         <PackageReference Include="NetVips.Native.win-x64" Version="8.16.0" Condition="$([MSBuild]::IsOsPlatform('Windows'))"/>
         <PackageReference Include="Prism.Avalonia" Version="9.0.537.11130"/>
         <PackageReference Include="Prism.Core" Version="9.0.537"/>
-        <PackageReference Include="ProgressDialog.Avalonia" Version="2.0.2"/>
+        <PackageReference Include="ProgressDialog.Avalonia" Version="2.0.3"/>
     </ItemGroup>
 
     <ItemGroup>
