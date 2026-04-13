@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
+using Avalonia.Platform.Storage;
 using MsBox.Avalonia;
 using MsBox.Avalonia.Enums;
 using Prism.Commands;
@@ -77,35 +78,35 @@ namespace ImageMerge
         {
             List<string> formats = new() { "jpg", "png", "bmp", "tiff" };
 
-            OpenFileDialog dlg = new OpenFileDialog
+            var topLevel = TopLevel.GetTopLevel(_mainWindowHandle)!;
+            var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
                 AllowMultiple = true,
                 Title = "Select file(s)",
-                Filters = new List<FileDialogFilter>
+                FileTypeFilter = new List<FilePickerFileType>
                 {
-                    new() { Name = "Supported images", Extensions = formats },
-                    new() { Name = "All files", Extensions = new List<string> { "*" } }
+                    new("Supported images") { Patterns = formats.Select(f => $"*.{f}").ToList() },
+                    new("All files") { Patterns = new List<string> { "*" } }
                 }
-            };
+            });
 
-            // Display OpenFileDialog by calling ShowDialog method.
-            var dlgResult = await dlg.ShowAsync(_mainWindowHandle);
-
-            if (dlgResult is not null && dlgResult.Length > 0)
+            if (files is not null && files.Count > 0)
             {
-                _fileList = dlgResult;
+                _fileList = files.Select(f => f.Path.LocalPath).ToArray();
                 RaisePropertyChanged(nameof(FileList));
             }
         }
 
         private async void SelectTarget()
         {
-            OpenFolderDialog dlg = new();
+            var topLevel = TopLevel.GetTopLevel(_mainWindowHandle)!;
+            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "Select target folder"
+            });
 
-            var dlgResult = await dlg.ShowAsync(_mainWindowHandle);
-
-            if (dlgResult is not null && dlgResult.Trim() != string.Empty)
-                SavePath = dlgResult;
+            if (folders is not null && folders.Count > 0)
+                SavePath = folders[0].Path.LocalPath;
         }
 
         private async void ConvertFilesProgressWrapper()
